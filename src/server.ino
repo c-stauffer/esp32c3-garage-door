@@ -13,7 +13,7 @@
 #include <Adafruit_Sensor.h>   // https://github.com/adafruit/Adafruit_Sensor/archive/master.zip
 #include <DHT.h>               // https://github.com/adafruit/DHT-sensor-library/archive/master.zip
 
-const char* APP_VERS        = "0.0.1";
+const char* APP_VERS        = "0.0.2";
 
 // configurable stuff here:
 const char* NET_SSID        = "REDACTED";
@@ -21,12 +21,13 @@ const char* NET_PASSPHRASE  = "REDACTED";
 const int   LISTEN_PORT     = 6262;
 const int   SERIAL_BAUDRATE = 115200;
 
-// TODO: determine which pins to use for the stuff, define them here
-const int   DOOR_SWITCH     = 4;
-const int   DOOR_OPEN_P     = 5;
-const int   DOOR_CLOSED_P   = 6;
-const int   DHT_PIN         = 7;
+// GPIO pin assignments
+const int   DOOR_SWITCH     = 0;
+const int   DHT_PIN         = 1;
+const int   DOOR_CLOSED_P   = 2;
+const int   DOOR_OPEN_P     = 3;
 
+// Door states
 const int D_OPEN            = 0;
 const int D_CLOSED          = 1;
 const int D_OPENING         = 2;
@@ -51,11 +52,12 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(SERIAL_BAUDRATE);
   
-  // TODO: pin inits?
+  // GPIO init
   pinMode(DOOR_OPEN_P, INPUT);
   pinMode(DOOR_CLOSED_P, INPUT);
+  pinMode(DHT_PIN, INPUT);
   pinMode(DOOR_SWITCH, OUTPUT);
-  //digitalWrite(4, LOW);
+  digitalWrite(DOOR_SWITCH, LOW);
 
   // config wifi for static ip
   if (!WiFi.config(my_ip, gateway, subnet))
@@ -77,9 +79,9 @@ void setup() {
   // hit the garage door switch:
   server.on("/actuate", HTTP_GET, [] (AsyncWebServerRequest *request) {
     Serial.println("Actuating door.");
-    digitalWrite(DOOR_SWITCH, 1);
-    delay(200);
-    digitalWrite(DOOR_SWITCH, 0);
+    digitalWrite(DOOR_SWITCH, HIGH);
+    delay(250); // give a bit of time in HIGH
+    digitalWrite(DOOR_SWITCH, LOW);
     request->send(200, "text/plain", "OK");
   });
 
