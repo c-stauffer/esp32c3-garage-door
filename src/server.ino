@@ -13,6 +13,8 @@
 #include <Adafruit_Sensor.h>   // https://github.com/adafruit/Adafruit_Sensor/archive/master.zip
 #include <DHT.h>               // https://github.com/adafruit/DHT-sensor-library/archive/master.zip
 
+const char* APP_VERS        = "0.0.1";
+
 // configurable stuff here:
 const char* NET_SSID        = "REDACTED";
 const char* NET_PASSPHRASE  = "REDACTED";
@@ -25,18 +27,16 @@ const int   DOOR_OPEN_P     = 5;
 const int   DOOR_CLOSED_P   = 6;
 const int   DHT_PIN         = 7;
 
-enum DoorStates {
-  OPEN,
-  CLOSED,
-  OPENING,
-  CLOSING,
-  UNKNOWN
-};
+const int D_OPEN            = 0;
+const int D_CLOSED          = 1;
+const int D_OPENING         = 2;
+const int D_CLOSING         = 3;
+const int D_UNKNOWN         = -1;
 
 // store the last HIGH reed switch, so that if neither switch is
 // currently HIGH, we can interpolate whether the door is opening
 // or closing.
-DoorStates _lastKnownDoorState = UNKNOWN;
+int _lastKnownDoorState = D_UNKNOWN;
 
 // values for configuring static IP
 IPAddress my_ip(192, 168, 1, 45);
@@ -52,8 +52,10 @@ void setup() {
   Serial.begin(SERIAL_BAUDRATE);
   
   // TODO: pin inits?
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);
+  pinMode(DOOR_OPEN_P, INPUT);
+  pinMode(DOOR_CLOSED_P, INPUT);
+  pinMode(DOOR_SWITCH, OUTPUT);
+  //digitalWrite(4, LOW);
 
   // config wifi for static ip
   if (!WiFi.config(my_ip, gateway, subnet))
@@ -65,6 +67,12 @@ void setup() {
     Serial.println("Connecting to wifi...");
   }
   Serial.println("Connection successful.");
+
+  // ping request
+  server.on("/ping", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    Serial.println("Ping received. Replying.");
+    request->send(200, "text/plain", APP_VERS);
+  });
 
   // hit the garage door switch:
   server.on("/actuate", HTTP_GET, [] (AsyncWebServerRequest *request) {
@@ -81,18 +89,22 @@ void setup() {
     Serial.println("Getting door state.");
     if (digitalRead(DOOR_OPEN_P) == HIGH) {
       Serial.println("Door is open.");
+      _lastKnownDoorState = D_OPEN;
       request->send(200, "text/plain", "open");
     }
     else if (digitalRead(DOOR_CLOSED_P) == HIGH) {
       Serial.println("Door is closed.");
+      _lastKnownDoorState = D_CLOSED;
       request->send(200, "text/plain", "closed");
     }
-    else if (_lastKnownDoorState == OPEN || _lastKnownDoorState == CLOSING) {
+    else if (_lastKnownDoorState == D_OPEN || _lastKnownDoorState == D_CLOSING) {
       Serial.println("Door is closing.");
+      _lastKnownDoorState = D_CLOSING;
       request->send(200, "text/plain", "closing");
     }
-    else if (_lastKnownDoorState == CLOSED || _lastKnownDoorState == OPENING) {
+    else if (_lastKnownDoorState == D_CLOSED || _lastKnownDoorState == D_OPENING) {
       Serial.println("Door is opening.");
+      _lastKnownDoorState = D_OPENING;
       request->send(200, "text/plain", "opening");
     }
     else {
