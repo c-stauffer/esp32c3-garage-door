@@ -13,7 +13,7 @@
 #include <Adafruit_Sensor.h>   // https://github.com/adafruit/Adafruit_Sensor/archive/master.zip
 #include <DHT.h>               // https://github.com/adafruit/DHT-sensor-library/archive/master.zip
 
-const char* APP_VERS        = "0.0.2";
+const char* APP_VERS        = "0.0.3";
 
 // configurable stuff here:
 const char* NET_SSID        = "REDACTED";
@@ -52,12 +52,14 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(SERIAL_BAUDRATE);
   
+  dht.begin();
+
   // GPIO init
   pinMode(DOOR_OPEN_P, INPUT);
   pinMode(DOOR_CLOSED_P, INPUT);
   pinMode(DHT_PIN, INPUT);
   pinMode(DOOR_SWITCH, OUTPUT);
-  digitalWrite(DOOR_SWITCH, LOW);
+  digitalWrite(DOOR_SWITCH, HIGH);
 
   // config wifi for static ip
   if (!WiFi.config(my_ip, gateway, subnet))
@@ -79,9 +81,9 @@ void setup() {
   // hit the garage door switch:
   server.on("/actuate", HTTP_GET, [] (AsyncWebServerRequest *request) {
     Serial.println("Actuating door.");
-    digitalWrite(DOOR_SWITCH, HIGH);
-    delay(250); // give a bit of time in HIGH
     digitalWrite(DOOR_SWITCH, LOW);
+    delay(250); // give a bit of time in LOW
+    digitalWrite(DOOR_SWITCH, HIGH);
     request->send(200, "text/plain", "OK");
   });
 
