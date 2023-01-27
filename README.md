@@ -9,7 +9,8 @@ The ESP32 will use a static IP (see: `my_ip`) and listen on the specifed port (s
 | ----------- | ----------- | ----------- | ----------- | ----------- |
 | `/ping` | GET | Determine if the esp32 is available. | 200 | software version, i.e. "1.0.0" |
 | `/actuate` | GET | Activate garage door to open or close it. | 200 | "OK" |
-| `/state` | GET | Gets the current state of the door, | 200 | one of: "open", "closed", "opening", "closing", "unknown" |
+| `/state` | GET | Gets the current state of the door. | 200 | one of: "OPEN", "CLOSED", "OPENING", "CLOSING", "UNKNOWN" |
+| `/state2` | GET | Gets the current state of the door sensors, helpful for debugging | 200 | JSON: `{ "closed":"LOW", "open":"HIGH", "last":"OPEN"}` where the values of `closed`/`open` are `LOW` or `HIGH`, and `last` (the last known door state) is the same list of possible values as the `/state` request's. |
 | `/temperature` | GET | Gets the current temperature, in Celsius. | 200 | float, degrees Celsius -OR- "--" if sensor could not be read. |
 | `/humidity` | GET | Gets the current humidity, in percent. | 200 | float, percent humidity -OR- "--" if sensor could not be read. |
 | `/heatindex` | GET | Gets the current calculated heat index, in percent. | 200 | float, degrees Celsius -OR- "--" if sensor could not be read. |
