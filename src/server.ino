@@ -17,7 +17,7 @@
 
 #define SERIAL_OUTPUT
 
-const char* APP_VERS        = "0.1.0";
+const char* APP_VERS        = "1.0.0";
 
 // set serial baudrate for debugging
 const int   SERIAL_BAUDRATE = 115200;
@@ -25,15 +25,19 @@ const int   SERIAL_BAUDRATE = 115200;
 // GPIO pin assignments
 const int   DOOR_SWITCH     = 0;
 const int   DHT_PIN         = 1;
-const int   DOOR_CLOSED_P   = 2;
 const int   DOOR_OPEN_P     = 3;
 
+// Changed from GPIO 2 (as shown in wiring-diagram.png) to 10 for troubleshooting
+// something... Ended up being a different issue, but just going to keep it on the
+// new pin.
+const int   DOOR_CLOSED_P   = 10; 
+
 // Door states
-const int D_OPEN            = 0;
-const int D_CLOSED          = 1;
-const int D_OPENING         = 2;
-const int D_CLOSING         = 3;
-const int D_UNKNOWN         = 4;
+const int   D_OPEN          = 0;
+const int   D_CLOSED        = 1;
+const int   D_OPENING       = 2;
+const int   D_CLOSING       = 3;
+const int   D_UNKNOWN       = 4;
 
 static const char* stateValues[] = {
   [D_OPEN] = "OPEN",
@@ -98,27 +102,35 @@ void setup() {
     
     serialPrint("Door is ");
     serialPrintln(stateValues[newState]);
-    last_door_state = newState;
-    request->send(200, stateValues[newState]);
+    // changed this to maintain the last *confirmed* door state (OPEN/CLOSED) rather
+    // than last *calculated* state, i.e. no longer can have last_door_state of OPENING or CLOSING.
+    if (newState == D_OPEN || newState == D_CLOSED)
+      last_door_state = newState;
+    request->send(200, "text/plain", stateValues[newState]);
   });
 
   // return raw switch values (and previous state) as json
   server.on("/state2", HTTP_GET, [] (AsyncWebServerRequest *request) {
     serialPrintln("Getting door state2.");
-    String jsonResp = "{\"closed\":";
-    int closedVal = digitalRead(DOOR_CLOSED_P);
+    String jsonResp = "{\"open\":";
     int openVal = digitalRead(DOOR_OPEN_P);
-    if (closedVal == LOW)
-      jsonResp += "\"LOW\",";
-    else 
-      jsonResp += "\"HIGH\",";
-    jsonResp += "\"open\":";
+    int closedVal = digitalRead(DOOR_CLOSED_P);
+
     if (openVal == LOW)
       jsonResp += "\"LOW\",";
     else 
       jsonResp += "\"HIGH\",";
+    jsonResp += "\"closed\":";
+    if (closedVal == LOW)
+      jsonResp += "\"LOW\",";
+    else 
+      jsonResp += "\"HIGH\",";
     jsonResp += "\"last\":\"" + String(stateValues[last_door_state]) + "\"}";
-    last_door_state = calculateDoorState(closedVal, openVal, last_door_state);
+    // changed this to maintain the last *confirmed* door state (OPEN/CLOSED) rather
+    // than last *calculated* state, i.e. no longer can have last_door_state of OPENING or CLOSING.
+    int newState = calculateDoorState(closedVal, openVal, last_door_state);
+    if (newState == D_OPEN || newState == D_CLOSED)
+      last_door_state = newState;
     request->send(200, "application/json", jsonResp);
   });
 
@@ -163,7 +175,8 @@ String readHumidity()
 
 String readHeatIndex()
 {
-  float h = dht.computeHeatIndex();
+  // readTemperature defaults to celsius but computeHeatIndex defaults to Fahrenheit...
+  float h = dht.computeHeatIndex(false);
   if (isnan(h)) {
     serialPrintln("Failure computing heat index.");
     return "--";
